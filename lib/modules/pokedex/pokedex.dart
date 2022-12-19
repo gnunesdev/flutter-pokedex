@@ -15,24 +15,25 @@ class PokedexPage extends StatefulWidget {
 }
 
 class _PokedexPageState extends State<PokedexPage> {
-  late Future<Pokemon> futurePokemon;
+  late Future<List<Pokemon>> futurePokemons;
 
   @override
   void initState() {
     super.initState();
-    futurePokemon = fetchPokemons();
+    futurePokemons = fetchPokemons();
   }
 
-  Future<Pokemon> fetchPokemons() async {
+  Future<List<Pokemon>> fetchPokemons() async {
     final response =
-        await http.get(Uri.parse("https://pokeapi.co/api/v2/pokemon/1"));
+        await http.get(Uri.parse('https://pokeapi.co/api/v2/pokemon'));
+    return parsePokemons(response.body);
+  }
 
-    if (response.statusCode == 200) {
-      return Pokemon.fromJson(jsonDecode(response.body));
-    } else {
-      print('There was an error tryisng to fetch the pokemons');
-      throw Exception('There was an error trying to fetch the pokemons');
-    }
+  List<Pokemon> parsePokemons(String responseBody) {
+    final parsed = jsonDecode(responseBody);
+    return parsed["results"]
+        .map<Pokemon>((json) => Pokemon.fromJson(json))
+        .toList();
   }
 
   @override
@@ -51,22 +52,47 @@ class _PokedexPageState extends State<PokedexPage> {
                     "Pokedex",
                     style: TextStyle(fontSize: 22, color: Colors.black87),
                   ),
-                  FutureBuilder<Pokemon>(
-                    future: futurePokemon,
+                  FutureBuilder<List<Pokemon>>(
+                    future: futurePokemons,
                     builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        return Text(snapshot.data!.name);
-                      } else if (snapshot.hasError) {
-                        return Text('${snapshot.error}');
+                      if (snapshot.hasError) {
+                        return const Center(
+                          child: Text('An error has occurred!'),
+                        );
+                      } else if (snapshot.hasData) {
+                        return PokemonsList(pokemons: snapshot.data!);
+                      } else {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
                       }
-
-                      // By default, show a loading spinner.
-                      return const CircularProgressIndicator();
                     },
                   )
                 ],
               ),
             )));
+  }
+}
+
+class PokemonsList extends StatelessWidget {
+  const PokemonsList({super.key, required this.pokemons});
+
+  final List<Pokemon> pokemons;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 1.5,
+        ),
+        itemCount: pokemons.length,
+        itemBuilder: (context, index) {
+          return Text(pokemons[index].name);
+        },
+      ),
+    );
   }
 }
 
@@ -77,14 +103,5 @@ class Pokemon {
 
   factory Pokemon.fromJson(Map<String, dynamic> json) {
     return Pokemon(name: json["name"]);
-  }
-}
-
-class List extends StatelessWidget {
-  const List({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container();
   }
 }
